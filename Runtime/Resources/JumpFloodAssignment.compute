@@ -1,0 +1,62 @@
+﻿#pragma kernel JFA
+#pragma kernel Preprocess
+#pragma kernel Postprocess
+
+uint3 dispatchSize;
+uint samplingOffset;
+half distanceNormalization;
+int insideVoteThreshold;
+RWTexture3D<half4> Voxels;
+Texture3D<half> InsideMask;
+RWTexture3D<half> OutputSdf;
+
+[numthreads(8, 8, 8)]
+void Preprocess(uint3 id : SV_DispatchThreadID) {
+	if (any(id >= dispatchSize)) return;
+	float isVoxel = Voxels[id].x;
+	Voxels[id] = half4(half(id.x), half(id.y), half(id.z), isVoxel);
+}
+
+void JFAIter(uint offset, uint3 id) {
+	if (any(id >= dispatchSize)) return;
+	half3 idF = half3(id);
+	half4 closest = Voxels[id];
+	half closestDist = 5000.0f;
+	int3 bounds = int3(dispatchSize);
+	int intOffset = (int)offset;
+	for (int i = -1; i <= 1; i++) {
+		for (int j = -1; j <= 1; j++) {
+			for (int k = -1; k <= 1; k++) {
+				int3 at = int3(id) + (int3(i, j, k) * intOffset);
+				if (any(at < 0) || any(at >= bounds)) continue;
+				half4 voxel = Voxels[uint3(at)];
+				// non seed / hasn't seen a seed
+				if (voxel.w == 0.0f) continue;
+				half voxelDist = distance(idF, voxel.xyz);
+				if (voxelDist < closestDist) {
+					closestDist = voxelDist;
+					closest = voxel;
+				}
+			}
+		}
+	}
+	Voxels[id] = closest;
+}
+
+[numthreads(8, 8, 8)]
+void JFA(uint3 id : SV_DispatchThreadID) {
+	JFAIter(samplingOffset, id);
+}
+
+[numthreads(8, 8, 8)]
+void Postprocess(uint3 id : SV_DispatchThreadID) {
+	if (any(id >= dispatchSize)) return;
+	half3 seedPos = Voxels[id].xyz;
+	half dist = distance(seedPos, half3(id)) / distanceNormalization;
+	dist = abs(dist);
+	half insideVotes = InsideMask[id];
+	if (insideVotes >= (half)insideVoteThreshold) {
+		dist = -dist;
+	}
+	OutputSdf[id] = dist;
+}

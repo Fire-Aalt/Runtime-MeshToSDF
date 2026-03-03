@@ -1,0 +1,17 @@
+{
+    "name": "KrasCore.MeshToSDF",
+    "rootNamespace": "KrasCore.MeshToSDF",
+    "references": [
+        "Unity.Collections",
+        "Unity.VisualEffectGraph.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
