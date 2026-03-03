@@ -37,7 +37,8 @@ public class SdfExample : MonoBehaviour
         var center = mesh.bounds.center;
 
         _baker.BakeSDF(size, center, sdfResolution, mesh, samplesPerTriangle);
-
+        
+        // If possible, use a more performant overload without a mesh: BakeSDF(Vector3 size, Vector3 center, int maxSdfResolution, NativeArray<int> indices, NativeArray<Vector3> vertices, uint samplesPerTriangle);
         // Use _baker.SdfTexture in VFX Graph or your own systems.
     }
 
@@ -56,7 +57,7 @@ public class SdfExample : MonoBehaviour
 
 ## Performance
 Benchmarked against `UnityEngine.VFX.SDF.MeshToSDFBaker` from `Visual Effects Graph`, `KrasCore.MeshToSDF.MeshToSDFBaker` is on average **34% faster**,
-while also providing a no-mesh-path, requiring only vertex and index buffers (`NativeList<Vector3>` and `NativeList<int>`), which results in much smaller CPU overhead and no need for a mesh at all.
+while also providing a no-mesh overload, requiring only vertex and index buffers (`NativeList<Vector3>` and `NativeList<int>`), which results in much smaller CPU overhead and no need for a mesh at all.
 
 ## Quality Note
 `samplesPerTriangle` controls voxelization quality versus bake time.
