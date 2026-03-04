@@ -1,5 +1,6 @@
 using System;
 using Unity.Collections;
+using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -38,6 +39,8 @@ namespace KrasCore.MeshToSDF
             public int ClassifyInsideZ;
         }
         
+        private static ProfilerMarker _extractMeshDataMarker = new("MeshToSDF.ExtractMeshData");
+        private static ProfilerMarker _bakeSdfMarker = new("MeshToSDF.BakeSDF");
         const string VoxelisationGpuMarker = "MeshToSDF.VoxelisationGPU";
         const string SdfJumpFillGpuMarker = "MeshToSDF.SDFJumpFillGPU";
         const int InsideVoteThreshold = 3;     
@@ -48,6 +51,7 @@ namespace KrasCore.MeshToSDF
         private Vector3 _center;
         private uint _samplesPerTriangle;
 
+        private readonly string _sdfTextureName;
         private readonly Kernels _kernels;
         private ComputeShader _jfaShader;
         private ComputeShader _mtvShader;
@@ -58,16 +62,16 @@ namespace KrasCore.MeshToSDF
         private NativeList<int> _cachedIndices = new(Allocator.Persistent);
         private NativeList<Vector3> _cachedVertices = new(Allocator.Persistent);
         
-        private CommandBuffer _gpuProfilingCommandBuffer;
+        private readonly CommandBuffer _gpuCommandBuffer;
         private RenderTexture _voxelTexture;
         private RenderTexture _insideMaskTexture;
         private RenderTexture _sdfTexture;
-        private bool _isRecordingDispatches;
         
-        public MeshToSDFBaker()
+        public MeshToSDFBaker(string sdfTextureName = "SDFTexture")
         {
-            LoadComputeShaders();
+            _sdfTextureName = sdfTextureName;
 
+            LoadComputeShaders();
             _kernels = new Kernels
             {
                 Jfa = _jfaShader.FindKernel("JFA"),
@@ -81,7 +85,10 @@ namespace KrasCore.MeshToSDF
                 ClassifyInsideZ = _mtvShader.FindKernel("ClassifyInsideZ"),
             };
             
-            EnsureGpuProfilingCommandBuffer();
+            _gpuCommandBuffer = new CommandBuffer
+            {
+                name = "MeshToSDF.GPUProfiling"
+            };
         }
         
         /// <summary>
@@ -111,6 +118,7 @@ namespace KrasCore.MeshToSDF
         public void BakeSDF(Vector3 size, Vector3 center, int maxSdfResolution, NativeArray<int> indices, NativeArray<Vector3> vertices,
             uint samplesPerTriangle = 128) 
         {
+            _bakeSdfMarker.Begin();
             _size = size;
             _center = center;
             _samplesPerTriangle = samplesPerTriangle;
@@ -122,10 +130,12 @@ namespace KrasCore.MeshToSDF
             FloodFillToSDF(maxSdfResolution, _voxelTexture, _insideMaskTexture, _sdfTexture);
 
             EndDispatchRecording();
+            _bakeSdfMarker.End();
         }
 
         private void ExtractMeshData(Mesh mesh, out NativeArray<int> indices, out NativeArray<Vector3> vertices) 
         {
+            _extractMeshDataMarker.Begin();
             var meshDataArray = Mesh.AcquireReadOnlyMeshData(mesh);
             var meshData = meshDataArray[0];
             var indexCount = (int)mesh.GetIndexCount(0);
@@ -140,6 +150,7 @@ namespace KrasCore.MeshToSDF
             vertices = _cachedVertices.AsArray();
             
             meshDataArray.Dispose();
+            _extractMeshDataMarker.End();
         }
 
         private RenderTexture MeshToVoxel(int voxelResolution, NativeArray<int> indices, NativeArray<Vector3> vertices,
@@ -239,12 +250,7 @@ namespace KrasCore.MeshToSDF
             
             int maxSide = Mathf.Max(voxels.width, Mathf.Max(voxels.height, voxels.volumeDepth));
             for (int offset = Mathf.NextPowerOfTwo(maxSide) / 2; offset >= 1; offset /= 2) {
-                if (_isRecordingDispatches) {
-                    _gpuProfilingCommandBuffer.SetComputeIntParam(_jfaShader, ShaderProperties.SamplingOffset, offset);
-                }
-                else {
-                    _jfaShader.SetInt(ShaderProperties.SamplingOffset, offset);
-                }
+                _gpuCommandBuffer.SetComputeIntParam(_jfaShader, ShaderProperties.SamplingOffset, offset);
                 DispatchComputeWithGpuMarker(_jfaShader, _kernels.Jfa, SdfJumpFillGpuMarker,
                     NumGroups(voxels.width, 8), NumGroups(voxels.height, 8), NumGroups(voxels.volumeDepth, 8));
             }
@@ -264,7 +270,7 @@ namespace KrasCore.MeshToSDF
                 if (outputSdf != null) outputSdf.Release();
                 outputSdf = new RenderTexture(voxels.width, voxels.height, 0, RenderTextureFormat.RHalf)
                 {
-                    name = "SDFTexture",
+                    name = _sdfTextureName,
                     dimension = TextureDimension.Tex3D,
                     enableRandomWrite = true,
                     useMipMap = false,
@@ -278,55 +284,36 @@ namespace KrasCore.MeshToSDF
 
         private Vector3Int VoxelDimensions(float voxelScale)
         {
-            int x = Mathf.Max(1, Mathf.CeilToInt(Mathf.Abs(_size.x) * voxelScale));
-            int y = Mathf.Max(1, Mathf.CeilToInt(Mathf.Abs(_size.y) * voxelScale));
-            int z = Mathf.Max(1, Mathf.CeilToInt(Mathf.Abs(_size.z) * voxelScale));
+            var x = Mathf.Max(1, Mathf.CeilToInt(Mathf.Abs(_size.x) * voxelScale));
+            var y = Mathf.Max(1, Mathf.CeilToInt(Mathf.Abs(_size.y) * voxelScale));
+            var z = Mathf.Max(1, Mathf.CeilToInt(Mathf.Abs(_size.z) * voxelScale));
             return new Vector3Int(x, y, z);
         }
 
         private float VoxelScaleFromBounds(int voxelResolution) 
         {
-            float maxSize = Mathf.Max(_size.x, Mathf.Max(_size.y, _size.z));
+            var maxSize = Mathf.Max(_size.x, Mathf.Max(_size.y, _size.z));
             if (maxSize <= 0.0f) return 1.0f;
             return voxelResolution / maxSize;
         }
 
-        private void EnsureGpuProfilingCommandBuffer() 
-        {
-            if (_gpuProfilingCommandBuffer != null) return;
-            _gpuProfilingCommandBuffer = new CommandBuffer();
-            _gpuProfilingCommandBuffer.name = "MeshToSDF.GPUProfiling";
-        }
-
         private void BeginDispatchRecording()
         {
-            EnsureGpuProfilingCommandBuffer();
-            _gpuProfilingCommandBuffer.Clear();
-            _isRecordingDispatches = true;
+            _gpuCommandBuffer.Clear();
         }
 
         private void EndDispatchRecording()
         {
-            if (_gpuProfilingCommandBuffer == null) return;
-            Graphics.ExecuteCommandBuffer(_gpuProfilingCommandBuffer);
-            _isRecordingDispatches = false;
+            if (_gpuCommandBuffer == null) return;
+            Graphics.ExecuteCommandBuffer(_gpuCommandBuffer);
         }
 
         private void DispatchComputeWithGpuMarker(ComputeShader shader, int kernel, string markerName,
             int threadGroupsX, int threadGroupsY, int threadGroupsZ) 
         {
-            EnsureGpuProfilingCommandBuffer();
-            if (!_isRecordingDispatches) 
-            {
-                _gpuProfilingCommandBuffer.Clear();
-            }
-            _gpuProfilingCommandBuffer.BeginSample(markerName);
-            _gpuProfilingCommandBuffer.DispatchCompute(shader, kernel, threadGroupsX, threadGroupsY, threadGroupsZ);
-            _gpuProfilingCommandBuffer.EndSample(markerName);
-            if (!_isRecordingDispatches) 
-            {
-                Graphics.ExecuteCommandBuffer(_gpuProfilingCommandBuffer);
-            }
+            _gpuCommandBuffer.BeginSample(markerName);
+            _gpuCommandBuffer.DispatchCompute(shader, kernel, threadGroupsX, threadGroupsY, threadGroupsZ);
+            _gpuCommandBuffer.EndSample(markerName);
         }
 
         private void LoadComputeShaders()
@@ -369,10 +356,9 @@ namespace KrasCore.MeshToSDF
             
             _cachedBuffers[0]?.Dispose();
             _cachedBuffers[1]?.Dispose();
-            if (_gpuProfilingCommandBuffer != null) 
+            if (_gpuCommandBuffer != null) 
             {
-                _gpuProfilingCommandBuffer.Release();
-                _gpuProfilingCommandBuffer = null;
+                _gpuCommandBuffer.Release();
             }
         }
     }
