@@ -7,11 +7,11 @@
 
 uint tris;
 int numSamples;
-half3 voxelOrigin;
-half voxelScale;
+float3 voxelOrigin;
+float voxelScale;
 uint3 voxelSize;
 
-StructuredBuffer<half3> VertexBuffer;
+StructuredBuffer<float3> VertexBuffer;
 StructuredBuffer<int> IndexBuffer;
 RWTexture3D<half4> Voxels;
 RWTexture3D<half> InsideMask;
@@ -42,25 +42,28 @@ void ClearInsideMask(uint3 id : SV_DispatchThreadID) {
 	InsideMask[id] = 0.0h;
 }
 
-[numthreads(512,1,1)]
+[numthreads(128,1,1)]
 void MeshToVoxel(uint3 id : SV_DispatchThreadID)
 {
-	uint triID = id.x * 3;
-	if (triID >= tris * 3) return;
-	half3 a = (VertexBuffer[IndexBuffer[triID + 0]] - voxelOrigin) * voxelScale;
-	half3 b = (VertexBuffer[IndexBuffer[triID + 1]] - voxelOrigin) * voxelScale;
-	half3 c = (VertexBuffer[IndexBuffer[triID + 2]] - voxelOrigin) * voxelScale;
-	half3 AB = b - a;
-	half3 AC = c - a;
+	uint triID = id.x;
+	if (triID >= tris) return;
+	uint triIndex = triID * 3u;
+	float3 a = (VertexBuffer[IndexBuffer[triIndex + 0u]] - voxelOrigin) * voxelScale;
+	float3 b = (VertexBuffer[IndexBuffer[triIndex + 1u]] - voxelOrigin) * voxelScale;
+	float3 c = (VertexBuffer[IndexBuffer[triIndex + 2u]] - voxelOrigin) * voxelScale;
+	float3 AB = b - a;
+	float3 AC = c - a;
+	uint3 lastVoxelIdx = uint3(0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu);
 
 	for (int i = 0; i < numSamples; i++) {
-		half2 s = half2(frac(0.7548776662466927 * i), frac(0.5698402909980532 * i));
+		float2 s = float2(frac(0.7548776662466927 * i), frac(0.5698402909980532 * i));
 		s = s.x + s.y > 1.0 ? 1.0 - s : s;
-		half3 pointOnTri = a + s.x * AB + s.y * AC;
+		float3 pointOnTri = a + s.x * AB + s.y * AC;
 		uint3 voxelIdx = uint3(floor(pointOnTri));
-		if (!any(voxelIdx >= voxelSize)) {
-			half distFromCenter = 1.0 - length(frac(pointOnTri) - half3(0.5, 0.5, 0.5));
-			Voxels[voxelIdx] = half4(distFromCenter, distFromCenter, distFromCenter, distFromCenter);
+		if (!any(voxelIdx >= voxelSize) && any(voxelIdx != lastVoxelIdx)) {
+			// The surface stage only needs a non-zero occupancy marker.
+			Voxels[voxelIdx] = half4(1.0h, 0.0h, 0.0h, 1.0h);
+			lastVoxelIdx = voxelIdx;
 		}
 	}
 }

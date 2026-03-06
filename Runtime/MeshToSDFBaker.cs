@@ -223,7 +223,7 @@ namespace KrasCore.MeshToSDF
                 NumGroups(voxelSize.x, 8), NumGroups(voxelSize.y, 8), NumGroups(voxelSize.z, 8));
 
             _mtvShader.SetTexture(_kernels.MtV, ShaderProperties.Voxels, voxels);
-            DispatchComputeWithGpuMarker(_mtvShader, _kernels.MtV, VoxelisationGpuMarkerMeshToVoxel, NumGroups(triangleCount, 512), 1, 1);
+            DispatchComputeWithGpuMarker(_mtvShader, _kernels.MtV, VoxelisationGpuMarkerMeshToVoxel, NumGroups(triangleCount, 128), 1, 1);
 
             _mtvShader.SetTexture(_kernels.ClearInsideMask, ShaderProperties.InsideMask, _insideMaskTexture);
             DispatchComputeWithGpuMarker(_mtvShader, _kernels.ClearInsideMask, VoxelisationGpuMarkerClearInsideMask,
