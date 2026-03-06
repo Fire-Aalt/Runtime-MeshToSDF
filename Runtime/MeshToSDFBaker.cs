@@ -41,8 +41,19 @@ namespace KrasCore.MeshToSDF
         
         private static ProfilerMarker _extractMeshDataMarker = new("MeshToSDF.ExtractMeshData");
         private static ProfilerMarker _bakeSdfMarker = new("MeshToSDF.BakeSDF");
-        const string VoxelisationGpuMarker = "MeshToSDF.VoxelisationGPU";
-        const string SdfJumpFillGpuMarker = "MeshToSDF.SDFJumpFillGPU";
+        private const string VoxelisationGpuMarker = "MeshToSDF.VoxelisationGPU";
+        private const string VoxelisationGpuMarkerZero = "MeshToSDF.VoxelisationGPU.Zero";
+        private const string VoxelisationGpuMarkerMeshToVoxel = "MeshToSDF.VoxelisationGPU.MeshToVoxel";
+        private const string VoxelisationGpuMarkerClearInsideMask = "MeshToSDF.VoxelisationGPU.ClearInsideMask";
+        private const string VoxelisationGpuMarkerClassifyInside = "MeshToSDF.VoxelisationGPU.ClassifyInside";
+        private const string VoxelisationGpuMarkerClassifyInsideX = "MeshToSDF.VoxelisationGPU.ClassifyInside.X";
+        private const string VoxelisationGpuMarkerClassifyInsideY = "MeshToSDF.VoxelisationGPU.ClassifyInside.Y";
+        private const string VoxelisationGpuMarkerClassifyInsideZ = "MeshToSDF.VoxelisationGPU.ClassifyInside.Z";
+        private const string SdfJumpFillGpuMarker = "MeshToSDF.SDFJumpFillGPU";
+        private const string SdfJumpFillGpuMarkerPreprocess = "MeshToSDF.SDFJumpFillGPU.Preprocess";
+        private const string SdfJumpFillGpuMarkerJfa = "MeshToSDF.SDFJumpFillGPU.JFA";
+        private const string SdfJumpFillGpuMarkerJfaStep = "MeshToSDF.SDFJumpFillGPU.JFA.Step";
+        private const string SdfJumpFillGpuMarkerPostprocess = "MeshToSDF.SDFJumpFillGPU.Postprocess";
         const int InsideVoteThreshold = 3;     
         
         public RenderTexture SdfTexture => _sdfTexture;
@@ -204,33 +215,37 @@ namespace KrasCore.MeshToSDF
                 _insideMaskTexture.Create();
             }
 
+            BeginGpuMarker(VoxelisationGpuMarker);
             _mtvShader.SetBuffer(_kernels.Zero, ShaderProperties.IndexBuffer, indicesBuffer);
             _mtvShader.SetBuffer(_kernels.Zero, ShaderProperties.VertexBuffer, vertexBuffer);
             _mtvShader.SetTexture(_kernels.Zero, ShaderProperties.Voxels, voxels);
-            DispatchComputeWithGpuMarker(_mtvShader, _kernels.Zero, VoxelisationGpuMarker,
+            DispatchComputeWithGpuMarker(_mtvShader, _kernels.Zero, VoxelisationGpuMarkerZero,
                 NumGroups(voxelSize.x, 8), NumGroups(voxelSize.y, 8), NumGroups(voxelSize.z, 8));
 
             _mtvShader.SetTexture(_kernels.MtV, ShaderProperties.Voxels, voxels);
-            DispatchComputeWithGpuMarker(_mtvShader, _kernels.MtV, VoxelisationGpuMarker, NumGroups(triangleCount, 512), 1, 1);
+            DispatchComputeWithGpuMarker(_mtvShader, _kernels.MtV, VoxelisationGpuMarkerMeshToVoxel, NumGroups(triangleCount, 512), 1, 1);
 
             _mtvShader.SetTexture(_kernels.ClearInsideMask, ShaderProperties.InsideMask, _insideMaskTexture);
-            DispatchComputeWithGpuMarker(_mtvShader, _kernels.ClearInsideMask, VoxelisationGpuMarker,
+            DispatchComputeWithGpuMarker(_mtvShader, _kernels.ClearInsideMask, VoxelisationGpuMarkerClearInsideMask,
                 NumGroups(voxelSize.x, 8), NumGroups(voxelSize.y, 8), NumGroups(voxelSize.z, 8));
 
+            BeginGpuMarker(VoxelisationGpuMarkerClassifyInside);
             _mtvShader.SetTexture(_kernels.ClassifyInsideX, ShaderProperties.Voxels, voxels);
             _mtvShader.SetTexture(_kernels.ClassifyInsideX, ShaderProperties.InsideMask, _insideMaskTexture);
-            DispatchComputeWithGpuMarker(_mtvShader, _kernels.ClassifyInsideX, VoxelisationGpuMarker,
+            DispatchComputeWithGpuMarker(_mtvShader, _kernels.ClassifyInsideX, VoxelisationGpuMarkerClassifyInsideX,
                 1, NumGroups(voxelSize.y, 8), NumGroups(voxelSize.z, 8));
             
             _mtvShader.SetTexture(_kernels.ClassifyInsideY, ShaderProperties.Voxels, voxels);
             _mtvShader.SetTexture(_kernels.ClassifyInsideY, ShaderProperties.InsideMask, _insideMaskTexture);
-            DispatchComputeWithGpuMarker(_mtvShader, _kernels.ClassifyInsideY, VoxelisationGpuMarker,
+            DispatchComputeWithGpuMarker(_mtvShader, _kernels.ClassifyInsideY, VoxelisationGpuMarkerClassifyInsideY,
                 NumGroups(voxelSize.x, 8), 1, NumGroups(voxelSize.z, 8));
             
             _mtvShader.SetTexture(_kernels.ClassifyInsideZ, ShaderProperties.Voxels, voxels);
             _mtvShader.SetTexture(_kernels.ClassifyInsideZ, ShaderProperties.InsideMask, _insideMaskTexture);
-            DispatchComputeWithGpuMarker(_mtvShader, _kernels.ClassifyInsideZ, VoxelisationGpuMarker,
+            DispatchComputeWithGpuMarker(_mtvShader, _kernels.ClassifyInsideZ, VoxelisationGpuMarkerClassifyInsideZ,
                 NumGroups(voxelSize.x, 8), NumGroups(voxelSize.y, 8), 1);
+            EndGpuMarker(VoxelisationGpuMarkerClassifyInside);
+            EndGpuMarker(VoxelisationGpuMarker);
 
             return voxels;
         }
@@ -242,25 +257,28 @@ namespace KrasCore.MeshToSDF
             _jfaShader.SetFloat(ShaderProperties.DistanceNormalization, Mathf.Max(1, sdfResolution));
             _jfaShader.SetInt(ShaderProperties.VoteThreshold, InsideVoteThreshold);
 
+            BeginGpuMarker(SdfJumpFillGpuMarker);
             _jfaShader.SetTexture(_kernels.Preprocess, ShaderProperties.Voxels, voxels);
-            DispatchComputeWithGpuMarker(_jfaShader, _kernels.Preprocess, SdfJumpFillGpuMarker,
+            DispatchComputeWithGpuMarker(_jfaShader, _kernels.Preprocess, SdfJumpFillGpuMarkerPreprocess,
                 NumGroups(voxels.width, 8), NumGroups(voxels.height, 8), NumGroups(voxels.volumeDepth, 8));
 
             _jfaShader.SetTexture(_kernels.Jfa, ShaderProperties.Voxels, voxels);
-            
+            BeginGpuMarker(SdfJumpFillGpuMarkerJfa);
             int maxSide = Mathf.Max(voxels.width, Mathf.Max(voxels.height, voxels.volumeDepth));
             for (int offset = Mathf.NextPowerOfTwo(maxSide) / 2; offset >= 1; offset /= 2) {
                 _gpuCommandBuffer.SetComputeIntParam(_jfaShader, ShaderProperties.SamplingOffset, offset);
-                DispatchComputeWithGpuMarker(_jfaShader, _kernels.Jfa, SdfJumpFillGpuMarker,
+                DispatchComputeWithGpuMarker(_jfaShader, _kernels.Jfa, SdfJumpFillGpuMarkerJfaStep,
                     NumGroups(voxels.width, 8), NumGroups(voxels.height, 8), NumGroups(voxels.volumeDepth, 8));
             }
+            EndGpuMarker(SdfJumpFillGpuMarkerJfa);
 
             _jfaShader.SetTexture(_kernels.Postprocess, ShaderProperties.Voxels, voxels);
             _jfaShader.SetTexture(_kernels.Postprocess, ShaderProperties.InsideMask, insideMask);
             _jfaShader.SetTexture(_kernels.Postprocess, ShaderProperties.OutputSdf, outputSdf);
 
-            DispatchComputeWithGpuMarker(_jfaShader, _kernels.Postprocess, SdfJumpFillGpuMarker,
+            DispatchComputeWithGpuMarker(_jfaShader, _kernels.Postprocess, SdfJumpFillGpuMarkerPostprocess,
                 NumGroups(voxels.width, 8), NumGroups(voxels.height, 8), NumGroups(voxels.volumeDepth, 8));
+            EndGpuMarker(SdfJumpFillGpuMarker);
         }
         
         private RenderTexture EnsureSdfOutputTexture(RenderTexture voxels, RenderTexture outputSdf)
@@ -313,6 +331,16 @@ namespace KrasCore.MeshToSDF
         {
             _gpuCommandBuffer.BeginSample(markerName);
             _gpuCommandBuffer.DispatchCompute(shader, kernel, threadGroupsX, threadGroupsY, threadGroupsZ);
+            _gpuCommandBuffer.EndSample(markerName);
+        }
+
+        private void BeginGpuMarker(string markerName)
+        {
+            _gpuCommandBuffer.BeginSample(markerName);
+        }
+
+        private void EndGpuMarker(string markerName)
+        {
             _gpuCommandBuffer.EndSample(markerName);
         }
 
