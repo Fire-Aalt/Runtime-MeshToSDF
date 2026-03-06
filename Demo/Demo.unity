@@ -278,7 +278,7 @@ MonoBehaviour:
   sdfBaker: 1
   mesh: {fileID: 4300000, guid: 738c71ddf0c2d52498055569428723ac, type: 2}
   vfxOutput: {fileID: 929699365}
-  sdfResolution: 516
+  sdfResolution: 256
   sizeExpands: {x: 0.2, y: 0.2, z: 0.2}
   centerOffset: {x: 0, y: 0, z: 0}
   samplesPerTriangle: 48

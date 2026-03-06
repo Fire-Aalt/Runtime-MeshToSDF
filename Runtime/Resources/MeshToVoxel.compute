@@ -19,15 +19,15 @@ RWTexture3D<half> InsideMask;
 #include "MeshToVoxel.InsideSegments.hlsl"
 
 // from https://beta.observablehq.com/@jrus/plastic-sequence
-half2 plastic(half index) {
-	return half2(0.5 + frac(0.7548776662466927 * index), 0.5 + frac(0.5698402909980532 * index));
+float2 plastic(float index) {
+	return float2(frac(0.7548776662466927 * index), frac(0.5698402909980532 * index));
 }
 
 // sample num, triangle basis vectors
-half3 triangleSample(int n, half3 A, half3 B) {
-	half2 s = plastic(half(n));
+float3 triangleSample(int n, float3 origin, float3 edgeA, float3 edgeB) {
+	float2 s = plastic((float)n);
 	s = s.x + s.y > 1.0 ? 1.0 - s : s;
-	return s.x * A + s.y * B;
+	return origin + s.x * edgeA + s.y * edgeB;
 }
 
 [numthreads(8, 8, 8)]
@@ -56,9 +56,7 @@ void MeshToVoxel(uint3 id : SV_DispatchThreadID)
 	uint3 lastVoxelIdx = uint3(0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu);
 
 	for (int i = 0; i < numSamples; i++) {
-		float2 s = float2(frac(0.7548776662466927 * i), frac(0.5698402909980532 * i));
-		s = s.x + s.y > 1.0 ? 1.0 - s : s;
-		float3 pointOnTri = a + s.x * AB + s.y * AC;
+		float3 pointOnTri = triangleSample(i, a, AB, AC);
 		uint3 voxelIdx = uint3(floor(pointOnTri));
 		if (!any(voxelIdx >= voxelSize) && any(voxelIdx != lastVoxelIdx)) {
 			// The surface stage only needs a non-zero occupancy marker.
