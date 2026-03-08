@@ -56,7 +56,7 @@ public class SdfExample : MonoBehaviour
 3. Choose your baker to check the performance and quality of the SDF. Use frame stats and check GPU Profiler for the most accurate data.
 
 ## Performance
-Benchmarked against `UnityEngine.VFX.SDF.MeshToSDFBaker` from `Visual Effects Graph`, `KrasCore.MeshToSDF.MeshToSDFBaker` is on average **34% faster**,
+Benchmarked against `UnityEngine.VFX.SDF.MeshToSDFBaker` from `Visual Effects Graph`, `KrasCore.MeshToSDF.MeshToSDFBaker` is on average **2x faster**,
 while also providing a no-mesh overload, requiring only vertex and index buffers (`NativeList<Vector3>` and `NativeList<int>`), which results in much smaller CPU overhead and no need for a mesh at all.
 
 ## Quality Note
