@@ -1,0 +1,16 @@
+{
+  "name": "com.firealt.runtime-meshtosdf",
+  "version": "1.0.0",
+  "displayName": "FireAlt Runtime-MeshToSDF",
+  "description": "Runtime GPU mesh-to-SDF baking utilities for Unity.",
+  "unity": "6000.23",
+  "documentationUrl": "https://github.com/Fire-Aalt/Runtime-MeshToSDF/blob/main/README.md",
+  "dependencies": {
+    "com.unity.collections": "2.6.5"
+  },
+  "author": {
+    "name": "FireAlt",
+    "email": "krasutskimaksim@gmail.com",
+    "url": "https://github.com/Fire-Aalt"
+  }
+}
