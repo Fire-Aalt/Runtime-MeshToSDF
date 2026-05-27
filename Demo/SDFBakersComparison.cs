@@ -1,18 +1,18 @@
 using UnityEngine;
 using UnityEngine.VFX;
 
-namespace KrasCore.MeshToSDF.Demo
+namespace FireAlt.MeshToSDF.Demo
 {
     public class SDFBakersComparison : MonoBehaviour
     {
         public enum Baker
         {
             Unity,
-            KrasCore
+            FireAlt
         }
         
         public bool setVFXGraphTexture = true;
-        public Baker sdfBaker = Baker.KrasCore;
+        public Baker sdfBaker = Baker.FireAlt;
         
         [Tooltip("Mesh to convert to SDF. One of Mesh or Skinned Mesh Renderer must be set")]
         public Mesh mesh;
@@ -58,7 +58,7 @@ namespace KrasCore.MeshToSDF.Demo
                 _unityBaker.BakeSDF();
                 outputSDFTexture = _unityBaker.SdfTexture;
             }
-            else if (sdfBaker == Baker.KrasCore)
+            else if (sdfBaker == Baker.FireAlt)
             {
                 _krasCoreBaker.BakeSDF(size, center, sdfResolution, mesh, samplesPerTriangle);
                 outputSDFTexture = _krasCoreBaker.SdfTexture;

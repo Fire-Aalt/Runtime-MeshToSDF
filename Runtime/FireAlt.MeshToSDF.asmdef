@@ -1,8 +1,8 @@
 {
-    "name": "KrasCore.MeshToSDF.Demo",
-    "rootNamespace": "KrasCore.MeshToSDF.Demo",
+    "name": "FireAlt.MeshToSDF",
+    "rootNamespace": "FireAlt.MeshToSDF",
     "references": [
-        "KrasCore.MeshToSDF",
+        "Unity.Collections",
         "Unity.VisualEffectGraph.Runtime"
     ],
     "includePlatforms": [],

@@ -13,7 +13,7 @@ for iteration and dynamic content, specifically focusing on runtime optimised AP
 ## Usage Example
 ```csharp
 using UnityEngine;
-using KrasCore.MeshToSDF;
+using FireAlt.MeshToSDF;
 
 public class SdfExample : MonoBehaviour
 {
@@ -56,7 +56,7 @@ public class SdfExample : MonoBehaviour
 3. Choose your baker to check the performance and quality of the SDF. Use frame stats and check GPU Profiler for the most accurate data.
 
 ## Performance
-Benchmarked against `UnityEngine.VFX.SDF.MeshToSDFBaker` from `Visual Effects Graph`, `KrasCore.MeshToSDF.MeshToSDFBaker` is on average **2x faster**,
+Benchmarked against `UnityEngine.VFX.SDF.MeshToSDFBaker` from `Visual Effects Graph`, `FireAlt.MeshToSDF.MeshToSDFBaker` is on average **2x faster**,
 while also providing a no-mesh overload, requiring only vertex and index buffers (`NativeList<Vector3>` and `NativeList<int>`), which results in much smaller CPU overhead and no need for a mesh at all.
 
 ## Quality Note

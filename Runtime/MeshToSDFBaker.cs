@@ -4,7 +4,7 @@ using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace KrasCore.MeshToSDF
+namespace FireAlt.MeshToSDF
 {
     public class MeshToSDFBaker : IDisposable
     {
