@@ -1,13 +1,20 @@
 {
   "name": "com.firealt.runtime-meshtosdf",
-  "version": "1.0.0",
-  "displayName": "FireAlt Runtime-MeshToSDF",
+  "version": "1.1.0",
+  "displayName": "FireAlt MeshToSDF",
   "description": "Runtime GPU mesh-to-SDF baking utilities for Unity.",
-  "unity": "6000.23",
+  "unity": "6000.3",
   "documentationUrl": "https://github.com/Fire-Aalt/Runtime-MeshToSDF/blob/main/README.md",
   "dependencies": {
     "com.unity.collections": "2.6.5"
   },
+  "samples": [
+    {
+      "displayName": "Demo",
+      "description": "Contains a demo scene which compares Unity Visual Effects MeshToSDF baker with FireAlt MeshToSDF.",
+      "path": "Samples~/Demo"
+    }
+  ],
   "author": {
     "name": "FireAlt",
     "email": "krasutskimaksim@gmail.com",
